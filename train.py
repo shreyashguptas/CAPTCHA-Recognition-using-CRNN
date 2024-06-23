@@ -64,7 +64,7 @@ def train():
     model = CRNN(vocab_size=vocab_size).to(device)
     # model.load_state_dict(torch.load('output/weight.pth', map_location=device))
 
-    train_loader, val_loader = get_loader('data/CAPTCHA Images/', batch_size=batch_size)
+    train_loader, val_loader = get_loader('/app/data/CAPTCHA Images', batch_size=batch_size)
 
     optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
@@ -77,7 +77,7 @@ def train():
         print('-----------------------------------------')
 
         if epoch == 0 or val_epoch_loss <= np.min(val_losses):
-            torch.save(model.state_dict(), 'output/weight.pth')
+            torch.save(model.state_dict(), '/app/output/weight.pth')
 
         train_losses.append(train_epoch_loss)
         val_losses.append(val_epoch_loss)

@@ -1,0 +1,388 @@
+--- dataset.py ---
+import random
+
+import numpy as np
+import torch
+import torchvision.transforms.functional as F
+from PIL import Image
+from torch.utils.data import Dataset, DataLoader
+import glob
+import os
+import matplotlib.pyplot as plt
+
+
+def split_image(image):
+    output = torch.Tensor([])
+    for i in range(0, 200, 10):
+        output = torch.cat([output, image[0][:, 0:10].unsqueeze(0)], dim=0)
+
+    return output
+
+
+class CaptchaImagesDataset(Dataset):
+    def __init__(self, root, augment=False):
+        super(CaptchaImagesDataset, self).__init__()
+        self.root = root
+        self.augment = augment
+
+        self.image_list = []
+        for ext in ('*.png', '*.jpg'):
+            self.image_list.extend(glob.glob(os.path.join(root, ext)))
+
+    def __len__(self):
+        return len(self.image_list)
+
+    def __getitem__(self, index):
+        image = self.image_list[index]
+        text = image.split('/')[-1].split('.')[0]
+
+        image = Image.open(image).convert('RGB')
+        image = F.to_tensor(image)
+
+        return image, text
+
+
+# def get_loader(root, batch_size):
+#     train_dataset = CaptchaImagesDataset(root + '/train', augment=True)
+#     val_dataset = CaptchaImagesDataset(root + '/val', augment=False)
+
+#     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+#     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+
+#     return train_loader, val_loader
+
+def get_loader(root, batch_size):
+    train_dataset = CaptchaImagesDataset(root + '/train', augment=True)
+    val_dataset = CaptchaImagesDataset(root + '/val', augment=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    return train_loader, val_loader
+
+
+if __name__ == '__main__':
+    train, val = get_loader('data/CAPTCHA Images/', batch_size=2)
+    for image, labels in train:
+        print()
+    print()
+
+
+--- split_train_val_test.py ---
+import glob
+import os
+import shutil
+import re
+import random
+
+
+def write_annotation(root, file):
+    f = open(root + '/' + file, 'w+')
+    for image in glob.glob(root + '/*/*.jpg'):
+        label = re.split('.jpg', image, flags=re.IGNORECASE)[0] + '.txt\n'
+        f.write(image + '\t' + label)
+    f.close()
+
+
+def split_train_val_test(root):
+    files = []
+
+    for ext in ('*.png', '*.jpg'):
+        files.extend(glob.glob(os.path.join(root, ext)))
+    random.shuffle(files)
+
+    for folder in ['/train', '/val', '/test']:
+        if not os.path.exists(root + folder):
+            os.mkdir(root + folder)
+
+    for file in files[0:int(len(files) * 0.8)]:
+        shutil.move(file, root + '/train/')
+
+    for file in files[int(len(files) * 0.8):int(len(files) * 0.9)]:
+        shutil.move(file, root + '/val/')
+
+    for file in files[int(len(files) * 0.9):len(files)]:
+        shutil.move(file, root + '/test')
+
+
+if __name__ == '__main__':
+    split_train_val_test('data/CAPTCHA Images')
+
+    print()
+
+
+--- utils.py ---
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import torch
+import collections
+
+
+class LabelConverter:
+    def __init__(self, char_set):
+        char = ['-'] + sorted(set(''.join(char_set)))
+        self.vocab_size = len(char)
+        self.int2char = dict(enumerate(char))
+        self.char2int = {char: ind for ind, char in self.int2char.items()}
+
+    def get_vocab_size(self):
+        return self.vocab_size
+
+    def encode(self, texts):
+        text_length = []
+        for t in texts:
+            text_length.append(len(t))
+
+        encoded_texts = []
+        for t in texts:
+            for c in t.lower():
+                encoded_texts.append(self.char2int.get(c))
+
+        return torch.tensor(encoded_texts), torch.tensor(text_length)
+
+    def decode(self, encoded_text):
+        # decode
+        text = []
+        for i in encoded_text:
+            text.append(self.int2char.get(i.item()))
+
+        # remove duplicate
+        decoded_text = ''
+        for i, t in enumerate(text):
+            if t == '-':
+                continue
+            if i > 0 and t == text[i-1]:
+                continue
+            decoded_text = decoded_text + t
+
+        return decoded_text
+
+
+def write_figure(location, train_losses, val_losses):
+    plt.plot(train_losses, label='training loss')
+    plt.plot(val_losses, label='validation loss')
+    plt.legend()
+    plt.savefig(location + '/loss.png')
+    plt.close('all')
+
+
+def write_log(location, epoch, train_loss, val_loss):
+    if epoch == 0:
+        f = open(location + '/log.txt', 'w+')
+        f.write('epoch\t\ttrain_loss\t\tval_loss\n')
+    else:
+        f = open(location + '/log.txt', 'a+')
+
+    f.write(str(epoch) + '\t' + str(train_loss) + '\t' + str(val_loss) + '\n')
+
+    f.close()
+
+
+--- model.py ---
+import torch
+import torch.nn as nn
+from torchvision.models import resnet18
+import torch.nn.functional as F
+
+
+class Conv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, bias=True, dilation=1):
+        super(Conv2d, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias,
+                              dilation=dilation)
+        self.bn = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=False)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        return x
+
+
+class CRNN(nn.Module):
+    def __init__(self, vocab_size):
+        super(CRNN, self).__init__()
+        resnet = resnet18(pretrained=True)
+        modules = list(resnet.children())[:-3]
+        self.resnet = nn.Sequential(*modules)
+        self.fc1 = nn.Linear(1024, 256)
+        self.fc2 = nn.Linear(256, vocab_size)
+        self.gru1 = nn.GRU(input_size=256, hidden_size=256)
+
+    def forward(self, x):
+        x = self.resnet(x)
+        x = x.permute(0, 3, 1, 2).contiguous()
+        x = x.view(x.shape[0], x.shape[1], -1)
+        x = F.dropout(self.fc1(x), p=0.5)
+        output, _ = self.gru1(x)
+        x = self.fc2(output)
+        x = x.permute(1, 0, 2)
+
+        return x
+
+--- train.py ---
+import torch
+import torch.optim as optim
+from utils import write_log, write_figure, LabelConverter
+import numpy as np
+from dataset import get_loader
+from tqdm import tqdm
+from model import CRNN
+import string
+import torch.nn as nn
+
+
+def calculate_loss(inputs, texts, label_converter, device):
+    criterion = nn.CTCLoss(blank=0)
+
+    inputs = inputs.log_softmax(2)
+    input_size, batch_size, _ = inputs.size()
+    input_size = torch.full(size=(batch_size,), fill_value=input_size, dtype=torch.int32)
+
+    encoded_texts, text_lens = label_converter.encode(texts)
+    loss = criterion(inputs, encoded_texts.to(device), input_size.to(device), text_lens.to(device))
+    return loss
+
+
+def fit(epoch, model, optimizer, label_converter, device, data_loader, phase='training'):
+    if phase == 'training':
+        model.train()
+    else:
+        model.eval()
+
+    running_loss = 0
+
+    for images, labels in tqdm(data_loader):
+        images = images.to(device)
+
+        if phase == 'training':
+            optimizer.zero_grad()
+            outputs = model(images)
+        else:
+            with torch.no_grad():
+                outputs = model(images)
+
+        loss = calculate_loss(outputs, labels, label_converter, device)
+        running_loss += loss.item()
+
+        if phase == 'training':
+            loss.backward()
+            optimizer.step()
+
+    epoch_loss = running_loss / len(data_loader)
+    print('[%d][%s] loss: %.4f' % (epoch, phase, epoch_loss))
+    return epoch_loss
+
+
+def train():
+    print('start training ...........')
+    batch_size = 16
+    num_epochs = 50
+    learning_rate = 0.1
+
+    label_converter = LabelConverter(char_set=string.ascii_lowercase + string.digits)
+    vocab_size = label_converter.get_vocab_size()
+
+    device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
+    model = CRNN(vocab_size=vocab_size).to(device)
+    # model.load_state_dict(torch.load('output/weight.pth', map_location=device))
+
+    train_loader, val_loader = get_loader('/app/data/CAPTCHA Images', batch_size=batch_size)
+
+    optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, nesterov=True)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
+    # scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, 10, 2)
+
+    train_losses, val_losses = [], []
+    for epoch in range(num_epochs):
+        train_epoch_loss = fit(epoch, model, optimizer, label_converter, device, train_loader, phase='training')
+        val_epoch_loss = fit(epoch, model, optimizer, label_converter, device, val_loader, phase='validation')
+        print('-----------------------------------------')
+
+        if epoch == 0 or val_epoch_loss <= np.min(val_losses):
+            torch.save(model.state_dict(), '/app/output/weight.pth')
+
+        train_losses.append(train_epoch_loss)
+        val_losses.append(val_epoch_loss)
+
+        write_figure('output', train_losses, val_losses)
+        write_log('output', epoch, train_epoch_loss, val_epoch_loss)
+
+        scheduler.step(val_epoch_loss)
+        # scheduler.step(epoch)
+
+
+if __name__ == "__main__":
+    train()
+
+
+--- code_context.py ---
+import os
+
+# Get the current directory
+current_directory = os.getcwd()
+
+# File extensions to search for
+extensions = ['.html', '.css', '.js', '.py']
+
+# Output file name
+output_file = 'combined_code.txt'
+
+# Open the output file in write mode
+with open(output_file, 'w') as outfile:
+    # Iterate over each file in the current directory
+    for filename in os.listdir(current_directory):
+        # Check if the file has one of the desired extensions
+        if any(filename.endswith(ext) for ext in extensions):
+            # Open the file and read its contents
+            with open(filename, 'r') as infile:
+                content = infile.read()
+                
+                # Write the file type and content to the output file
+                outfile.write(f"--- {filename} ---\n")
+                outfile.write(content)
+                outfile.write("\n\n")
+
+print(f"Combined code saved to {output_file}")
+
+--- predict.py ---
+import string
+
+import numpy as np
+from PIL import Image
+import torch
+import torchvision.transforms.functional as F
+import matplotlib.pyplot as plt
+from model import CRNN
+import os
+from tqdm import tqdm
+import glob
+from dataset import CaptchaImagesDataset
+from utils import LabelConverter
+from tqdm import tqdm
+
+
+if __name__ == '__main__':
+    device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
+    label_converter = LabelConverter(char_set=string.ascii_lowercase + string.digits)
+    vocab_size = label_converter.get_vocab_size()
+
+    model = CRNN(vocab_size=vocab_size).to(device)
+    model.load_state_dict(torch.load('output/weight.pth', map_location=device))
+    model.eval()
+
+    correct = 0.0
+    image_list = glob.glob('/app/data/CAPTCHA Images/test/*')
+    for image in tqdm(image_list):
+        ground_truth = image.split('/')[-1].split('.')[0]
+        image = Image.open(image).convert('RGB')
+        image = F.to_tensor(image).unsqueeze(0).to(device)
+
+        output = model(image)
+        encoded_text = output.squeeze().argmax(1)
+        decoded_text = label_converter.decode(encoded_text)
+
+        if ground_truth == decoded_text:
+            correct += 1
+
+    print('accuracy =', correct/len(image_list))
+

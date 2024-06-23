@@ -18,15 +18,25 @@ def split_image(image):
     return output
 
 
+# class CaptchaImagesDataset(Dataset):
+#     def __init__(self, root, augment=False):
+#         super(CaptchaImagesDataset, self).__init__()
+#         self.root = root
+#         self.augment = augment
+
+#         self.image_list = []
+#         for ext in ('*.png', '*.jpg'):
+#             self.image_list.extend(glob.glob(os.path.join(root, ext)))
+
 class CaptchaImagesDataset(Dataset):
     def __init__(self, root, augment=False):
         super(CaptchaImagesDataset, self).__init__()
         self.root = root
         self.augment = augment
-
         self.image_list = []
         for ext in ('*.png', '*.jpg'):
             self.image_list.extend(glob.glob(os.path.join(root, ext)))
+        print(f"Found {len(self.image_list)} images in {root}")
 
     def __len__(self):
         return len(self.image_list)
@@ -41,13 +51,25 @@ class CaptchaImagesDataset(Dataset):
         return image, text
 
 
+# def get_loader(root, batch_size):
+#     train_dataset = CaptchaImagesDataset(root + '/train', augment=True)
+#     val_dataset = CaptchaImagesDataset(root + '/val', augment=False)
+
+#     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+#     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+
+#     return train_loader, val_loader
+
 def get_loader(root, batch_size):
     train_dataset = CaptchaImagesDataset(root + '/train', augment=True)
     val_dataset = CaptchaImagesDataset(root + '/val', augment=False)
-
+    
+    print(f"Number of training samples: {len(train_dataset)}")
+    print(f"Number of validation samples: {len(val_dataset)}")
+    
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-
+    
     return train_loader, val_loader
 
 
