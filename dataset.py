@@ -74,7 +74,7 @@ def get_loader(root, batch_size):
 
 
 if __name__ == '__main__':
-    train, val = get_loader('data/CAPTCHA Images/', batch_size=2)
+    train, val = get_loader('/home/dev/dev_work_shrey/playing_around/data/CAPTCHA Images/', batch_size=2)
     for image, labels in train:
         print()
     print()

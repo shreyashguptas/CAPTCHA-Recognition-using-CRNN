@@ -24,7 +24,7 @@ if __name__ == '__main__':
     model.eval()
 
     correct = 0.0
-    image_list = glob.glob('/app/data/CAPTCHA Images/test/*')
+    image_list = glob.glob('/home/dev/dev_work_shrey/playing_around/data/CAPTCHA Images/test/*')
     for image in tqdm(image_list):
         ground_truth = image.split('/')[-1].split('.')[0]
         image = Image.open(image).convert('RGB')

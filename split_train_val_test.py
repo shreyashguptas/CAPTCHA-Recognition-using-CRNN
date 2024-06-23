@@ -35,6 +35,6 @@ def split_train_val_test(root):
 
 
 if __name__ == '__main__':
-    split_train_val_test('data/CAPTCHA Images')
+    split_train_val_test('/home/dev/dev_work_shrey/playing_around/data/CAPTCHA Images')
 
     print()
