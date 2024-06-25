@@ -82,7 +82,10 @@ If you're running on a Mac or need more information on using GPUs with Docker, p
 
 2. It's fascinating to observe how methods originally designed to distinguish between robots and humans are becoming less effective. As we make progress in machine learning and hardware computation improves, training these models becomes easier and faster.
 
-[Placeholder for .mov video]
+<video width="640" height="360" controls>
+  <source src="pytorch_video.mov" type="video/quicktime">
+  Your browser does not support the video tag.
+</video>
 
 3. As a developer aspiring to build more in the AI/ML space, it's remarkable to realize that with readily available computing power and a few hours of work, we can build a model that achieves 92.5% accuracy in predicting CAPTCHAs – a task once thought to be an effective way to distinguish between humans and robots.
 
