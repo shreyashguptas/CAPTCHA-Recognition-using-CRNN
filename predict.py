@@ -20,7 +20,7 @@ if __name__ == '__main__':
     vocab_size = label_converter.get_vocab_size()
 
     model = CRNN(vocab_size=vocab_size).to(device)
-    model.load_state_dict(torch.load('output/weight.pth', map_location=device))
+    model.load_state_dict(torch.load('/home/dev/dev_work_shrey/playing_around/output/weight.pth', map_location=device))
     model.eval()
 
     correct = 0.0
