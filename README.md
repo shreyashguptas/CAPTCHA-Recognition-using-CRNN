@@ -83,7 +83,7 @@ If you're running on a Mac or need more information on using GPUs with Docker, p
 2. It's fascinating to observe how methods originally designed to distinguish between robots and humans are becoming less effective. As we make progress in machine learning and hardware computation improves, training these models becomes easier and faster.
 
 <video width="640" height="360" controls>
-  <source src="pytorch_video.mov" type="video/quicktime">
+  <source src="/home/dev/dev_work_shrey/playing_around/pytorch_video.mp4" type="video/quicktime">
   Your browser does not support the video tag.
 </video>
 
