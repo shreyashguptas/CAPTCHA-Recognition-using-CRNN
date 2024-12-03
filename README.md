@@ -1,5 +1,3 @@
-Here's an extensive Markdown README for your GitHub project based on the information you provided:
-
 # CAPTCHA Prediction using Convolutional Recurrent Neural Network
 
 This project focuses on training a Convolutional Recurrent Neural Network (CRNN) model to accurately predict 5-letter and 5-number CAPTCHA images. The goal is to develop a robust model that can reliably identify the text content within CAPTCHA images, which are commonly used as a security measure to distinguish between human users and automated bots.
